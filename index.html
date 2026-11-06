@@ -1,285 +1,669 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CONG · Detecting Human with Concealed Gun</title>
+  <meta name="description" content="Detecting Human with Concealed Gun by Learning from YouTube's CCTV Videos — the CONcealed Gun (CONG) human-tracking dataset and a pose-based early-warning detector. Visual Intelligence Lab, Khon Kaen University." />
+  <meta property="og:title" content="CONG: Detecting Human with Concealed Gun from CCTV" />
+  <meta property="og:description" content="A human-tracking dataset mined from YouTube CCTV footage, where each person is labeled normal, visible gun, or concealed gun — plus a pose-based early-warning detector." />
+  <meta property="og:image" content="assets/img/demo-poster.jpg" />
+  <meta name="theme-color" content="#0a0e13" />
+  <link rel="icon" type="image/png" href="assets/img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e13;
+      --bg-2: #0f151c;
+      --panel: #131b24;
+      --panel-2: #18222d;
+      --line: #223040;
+      --line-2: #2c3d50;
+      --text: #e7edf3;
+      --muted: #93a3b4;
+      --dim: #64758a;
+      --green: #3ee08f;
+      --green-soft: rgba(62, 224, 143, .12);
+      --amber: #ffb547;
+      --amber-soft: rgba(255, 181, 71, .12);
+      --red: #ff5a5f;
+      --red-soft: rgba(255, 90, 95, .12);
+      --blue: #5aa9ff;
+      --radius: 14px;
+      --max: 1120px;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 17px; line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    img, video, iframe { display: block; max-width: 100%; }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+    .mono { font-family: var(--mono); }
 
-<head lang="en">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta http-equiv="x-ua-compatible" content="ie=edge" />
-    <meta name="description" content="" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Detecting Concealed Gun</title>
-    <link rel="icon" type="image/png" href="./NeRV_files/gun_1.png" />
-    <link rel="stylesheet" href="./NeRV_files/font-awesome.min.css" />
-    <link rel="stylesheet" href="./NeRV_files/codemirror.min.css" />
-    <link rel="stylesheet" href="./NeRV_files/app.css" />
-    <link rel="stylesheet" href="./NeRV_files/bootstrap.min.css" />
+    /* ---------- nav ---------- */
+    .nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(10, 14, 19, .78); backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid transparent; transition: border-color .2s;
+    }
+    .nav.scrolled { border-bottom-color: var(--line); }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; letter-spacing: .02em; }
+    .brand:hover { text-decoration: none; }
+    .rec { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 4px var(--red-soft); animation: blink 1.6s infinite; }
+    @keyframes blink { 50% { opacity: .25; } }
+    .nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; }
+    .nav ul::-webkit-scrollbar { display: none; }
+    .nav li a {
+      display: block; padding: 6px 12px; border-radius: 8px; color: var(--muted);
+      font-size: 14px; font-weight: 500; white-space: nowrap;
+    }
+    .nav li a:hover, .nav li a.active { color: var(--text); background: var(--panel); text-decoration: none; }
 
-    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-    <style>
-        .mySlides {
-            display: none
-        }
+    /* ---------- hero ---------- */
+    .hero { position: relative; padding: 72px 0 40px; overflow: hidden; }
+    .hero::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(800px 380px at 50% -10%, rgba(62, 224, 143, .10), transparent 70%),
+        linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 48px 48px;
+      mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+      opacity: .55;
+    }
+    .hero .wrap { position: relative; text-align: center; }
+    .venue {
+      display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px;
+      border: 1px solid var(--line-2); border-radius: 999px; background: var(--panel);
+      font-family: var(--mono); font-size: 13px; color: var(--muted);
+    }
+    .venue b { color: var(--green); font-weight: 600; }
+    h1 {
+      font-size: clamp(30px, 5vw, 54px); line-height: 1.12; letter-spacing: -.025em;
+      margin: 22px auto 0; max-width: 920px; font-weight: 800;
+    }
+    h1 .hl {
+      background: linear-gradient(90deg, var(--green), #8ff0c0);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .subtitle { color: var(--muted); max-width: 720px; margin: 18px auto 0; font-size: 18px; }
+    .authors { margin: 30px auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 26px; font-size: 17px; font-weight: 500; }
+    .authors a, .authors span { color: var(--text); }
+    .authors sup { color: var(--green); font-family: var(--mono); font-size: 11px; margin-left: 2px; }
+    .affil { margin-top: 10px; color: var(--muted); font-size: 14.5px; }
+    .affil sup { color: var(--green); font-family: var(--mono); font-size: 10px; margin-right: 3px; }
+    .btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+      border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel);
+      color: var(--text); font-weight: 600; font-size: 15px;
+      transition: transform .15s, border-color .15s, background .15s;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); border-color: var(--green); background: var(--panel-2); }
+    .btn svg { width: 18px; height: 18px; flex: none; }
+    .btn.primary { background: var(--green); color: #04130b; border-color: var(--green); }
+    .btn.primary:hover { background: #5ff0a5; }
 
-        .w3-left,
-        .w3-right,
-        .w3-badge {
-            cursor: pointer
-        }
+    /* CCTV frame */
+    .cctv {
+      position: relative; margin: 48px auto 0; max-width: 980px; border-radius: var(--radius);
+      background: #000; border: 1px solid var(--line-2); overflow: hidden;
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .7), 0 0 0 1px rgba(62, 224, 143, .05);
+    }
+    .cctv video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000; }
+    .hud { position: absolute; inset: 0; pointer-events: none; font-family: var(--mono); font-size: 12px; color: rgba(255, 255, 255, .85); }
+    .hud .tl, .hud .tr, .hud .bl, .hud .br { position: absolute; display: flex; align-items: center; gap: 8px; padding: 14px 18px; text-shadow: 0 1px 2px #000; }
+    .hud .tl { top: 0; left: 0; } .hud .tr { top: 0; right: 0; } .hud .bl { bottom: 0; left: 0; } .hud .br { bottom: 0; right: 0; }
+    .hud .corner { position: absolute; width: 26px; height: 26px; border: 2px solid rgba(62, 224, 143, .75); }
+    .hud .c1 { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
+    .hud .c2 { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
+    .hud .c3 { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
+    .hud .c4 { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+    .cctv-cap { color: var(--dim); font-size: 14px; margin-top: 14px; }
 
-        .w3-badge {
-            height: 13px;
-            width: 13px;
-            padding: 0
-        }
-    </style>
+    /* ---------- sections ---------- */
+    section { padding: 88px 0 0; }
+    .eyebrow { font-family: var(--mono); font-size: 13px; color: var(--green); letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+    .eyebrow::after { content: ""; flex: 0 0 48px; height: 1px; background: var(--line-2); }
+    h2 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.2; letter-spacing: -.02em; margin: 10px 0 18px; font-weight: 750; }
+    h3 { font-size: 19px; margin: 0 0 8px; letter-spacing: -.01em; }
+    .lead { color: var(--muted); max-width: 780px; font-size: 18px; margin: 0; }
+    p { margin: 0 0 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+
+    /* tldr */
+    .tldr { display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; align-items: start; margin-top: 28px; }
+    .abstract p { color: #c9d4df; }
+    .figure { background: #fff; border-radius: var(--radius); padding: 14px; border: 1px solid var(--line); }
+    .figcap { color: var(--dim); font-size: 14px; margin-top: 12px; }
+    .keypoints { display: grid; gap: 12px; margin-top: 18px; }
+    .kp { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; }
+    .kp .ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--green-soft); color: var(--green); font-family: var(--mono); font-weight: 600; font-size: 14px; }
+    .kp p { margin: 0; color: var(--muted); font-size: 15.5px; }
+    .kp b { color: var(--text); font-weight: 600; }
+
+    /* dataset */
+    .classes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+    .cls { position: relative; padding: 22px 22px 20px; }
+    .cls .box { width: 44px; height: 56px; border: 2.5px solid currentColor; border-radius: 3px; margin-bottom: 14px; position: relative; }
+    .cls .box { margin-top: 18px; }
+    .cls .box span { position: absolute; top: -19px; left: -2.5px; font-family: var(--mono); font-size: 10px; color: #04130b; background: var(--c); padding: 0 5px; border-radius: 2px 2px 2px 0; font-weight: 600; white-space: nowrap; }
+    .cls.n { --c: var(--green); } .cls.v { --c: var(--amber); } .cls.c { --c: var(--red); }
+    .cls p { color: var(--muted); font-size: 15px; margin: 0; }
+    .cls.n { color: var(--green); } .cls.v { color: var(--amber); } .cls.c { color: var(--red); }
+    .cls h3 { color: var(--text); }
+    .timeline-card { margin-top: 20px; padding: 28px 28px 22px; }
+    .timeline-card h3 { margin-bottom: 4px; }
+    .timeline-card > p { color: var(--muted); font-size: 15.5px; max-width: 760px; }
+    .timeline-scroll { overflow-x: auto; margin-top: 10px; }
+    .timeline { width: 100%; min-width: 620px; height: auto; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); margin-top: 6px; }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+
+    /* method */
+    .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 30px; counter-reset: step; position: relative; }
+    .step { position: relative; padding: 22px 20px; }
+    .step::before {
+      counter-increment: step; content: "0" counter(step);
+      font-family: var(--mono); font-size: 12px; color: var(--green);
+      display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--green-soft); margin-bottom: 14px;
+    }
+    .step:not(:last-child)::after {
+      content: ""; position: absolute; right: -11px; top: 50%; width: 8px; height: 8px;
+      border-top: 2px solid var(--line-2); border-right: 2px solid var(--line-2); transform: translateY(-50%) rotate(45deg);
+    }
+    .step p { color: var(--muted); font-size: 15px; margin: 0; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .tag { font-family: var(--mono); font-size: 11.5px; color: var(--muted); border: 1px solid var(--line-2); padding: 2px 8px; border-radius: 6px; }
+    .system { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .system .card p { color: var(--muted); font-size: 15.5px; margin: 0; }
+    .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; font-family: var(--mono); font-size: 13px; }
+    .flow span { padding: 5px 10px; border-radius: 7px; background: var(--bg-2); border: 1px solid var(--line-2); }
+    .flow em { color: var(--dim); font-style: normal; }
+
+    /* results */
+    .results { display: grid; grid-template-columns: 1fr 1.25fr; gap: 16px; margin-top: 30px; }
+    .results > *, .tldr > *, .demo-grid > *, .system > *, .awards > *, .pipeline > * { min-width: 0; }
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .stat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .stat .lbl { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+    .stat .model { font-weight: 600; font-size: 15px; margin-top: 2px; }
+    .bar { margin-top: 12px; }
+    .bar .row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+    .bar .row b { color: var(--text); font-family: var(--mono); font-weight: 600; }
+    .bar .track { height: 6px; border-radius: 6px; background: var(--line); margin-top: 5px; overflow: hidden; }
+    .bar .fill { height: 100%; width: 0; border-radius: 6px; background: var(--green); transition: width 1.1s cubic-bezier(.2, .8, .2, 1); }
+    .bar .fill.p { background: var(--blue); }
+    .note { color: var(--dim); font-size: 14px; margin-top: 14px; }
+    .tbl-wrap { overflow-x: auto; margin-top: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 460px; }
+    th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; }
+    th { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+    td { font-family: var(--mono); color: var(--muted); }
+    td:first-child { font-family: var(--sans); color: var(--text); }
+    tr.best td { color: var(--green); background: var(--green-soft); }
+    tr.best td:first-child { color: var(--green); font-weight: 600; }
+
+    /* demo */
+    .demo-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-top: 30px; align-items: start; }
+    .embed { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #000; }
+    .embed iframe, .embed button { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .yt-facade { cursor: pointer; padding: 0; background: #000 center / cover no-repeat; }
+    .yt-facade::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, .65)); }
+    .yt-facade .play {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;
+      width: 72px; height: 72px; border-radius: 50%; background: rgba(10, 14, 19, .75);
+      border: 2px solid var(--green); display: grid; place-items: center; transition: transform .2s;
+    }
+    .yt-facade:hover .play { transform: translate(-50%, -50%) scale(1.08); }
+    .yt-facade .play svg { width: 26px; height: 26px; margin-left: 4px; fill: var(--green); }
+    .yt-facade .t { position: absolute; left: 18px; bottom: 14px; z-index: 1; color: #fff; font-weight: 600; font-size: 15px; text-align: left; }
+    .poster-card { display: block; padding: 0; overflow: hidden; }
+    .poster-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; transition: transform .4s; }
+    .poster-card:hover img { transform: scale(1.03); }
+    .poster-card .meta { padding: 14px 18px; color: var(--text); font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; gap: 12px; }
+    .poster-card .meta span { color: var(--dim); font-weight: 400; font-family: var(--mono); font-size: 12.5px; }
+    .poster-card:hover { text-decoration: none; border-color: var(--line-2); }
+    .media-label { font-size: 14px; color: var(--muted); margin-top: 10px; }
+
+    /* awards */
+    .awards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; }
+    .award { display: flex; gap: 20px; align-items: center; color: var(--text); transition: border-color .2s; }
+    .award:hover { text-decoration: none; border-color: var(--green); }
+    .award .logo { flex: none; width: 104px; height: 104px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: hidden; }
+    .award .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .award .yr { font-family: var(--mono); font-size: 12px; color: var(--amber); }
+    .award h3 { margin: 4px 0 4px; }
+    .award p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
+    .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+    .gallery button { all: unset; display: block; cursor: zoom-in; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); aspect-ratio: 4 / 3; }
+    .gallery button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    .gallery img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s, filter .4s; filter: saturate(.9); }
+    @media (max-width: 900px) { .gallery { grid-template-columns: repeat(2, 1fr); } }
+    .gallery button:hover img { transform: scale(1.03); filter: saturate(1.05); }
+
+    /* lightbox */
+    dialog.lb { border: 0; padding: 0; background: transparent; max-width: 94vw; max-height: 92vh; }
+    dialog.lb::backdrop { background: rgba(4, 6, 9, .9); backdrop-filter: blur(4px); }
+    dialog.lb img { max-width: 94vw; max-height: 86vh; border-radius: 10px; }
+    .lb-bar { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+    .lb-bar button { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 14px; font: 500 14px var(--sans); cursor: pointer; }
+    .lb-bar button:hover { border-color: var(--green); }
+
+    /* citation */
+    .bib { position: relative; margin-top: 24px; }
+    .bib pre { margin: 0; padding: 22px 24px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.7; color: #c9d4df; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); }
+    .bib .k { color: var(--green); } .bib .f { color: var(--blue); } .bib .s { color: #e8c58a; }
+    .copy { position: absolute; top: 12px; right: 12px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: 500 13px var(--sans); cursor: pointer; }
+    .copy:hover { color: var(--text); border-color: var(--green); }
+
+    footer { margin-top: 100px; border-top: 1px solid var(--line); padding: 32px 0 44px; color: var(--dim); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; }
+    footer a { color: var(--muted); }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s, transform .7s; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .tldr, .results, .demo-grid, .system, .awards { grid-template-columns: 1fr; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .step:nth-child(2)::after { display: none; }
+      .classes { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .wrap { padding: 0 16px; }
+      .nav ul { display: none; }
+      .hero { padding-top: 48px; }
+      section { padding-top: 64px; }
+      .pipeline { grid-template-columns: 1fr; }
+      .step::after { display: none; }
+      .stat-row { grid-template-columns: 1fr; }
+      .award { flex-direction: column; align-items: flex-start; }
+      .hud { font-size: 10px; }
+      .hud .tl, .hud .tr, .hud .bl, .hud .br { padding: 10px 12px; }
+      .hud .bl, .hud .br { display: none; }
+      .card { padding: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .rec { animation: none; }
+      .reveal { opacity: 1; transform: none; transition: none; }
+      .bar .fill { transition: none; }
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container" id="main">
-        <div class="row">
-            <h1 class="col-md-12 text-center">
-                Detecting Human with Concealed Gun by Learning <br />
-                from YouTube's CCTV Videos <br />
-            </h1>
-        </div>
-        <div class="row">
-            <div class="col-md-12 text-center">
-                <ul class="list-inline">
-                    <li>
-                        <a href="https://www.linkedin.com/in/yupapornwanna">
-                            Yupaporn Wanna
-                        </a>
-                    </li>
-                    <li>
-                        <a> Pimonpun Chachomphon </a>
-                    </li>
-                    <li>
-                        <a href="https://www.linkedin.com/in/haemwaan-sivaraks-22434a13b/">
-                            Haemwaan Sivarakst
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://vi-lab-th.github.io/"> Thanapong Intharah </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2 text-center">
-                <ul class="nav nav-pills nav-justified">
-                    <li>
-                        <a href="https://ieeexplore.ieee.org/abstract/document/10499663">
-                            <img src="./NeRV_files/paper.jpg" height="120px" /><br />
-                            <h4><strong>Paper</strong></h4>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://www.youtube.com/watch?v=XcfcuMSpp90&feature=youtu.be">
-                            <img src="./NeRV_files/youtube_icon_dark.png" height="120px" /><br />
-                            <h4><strong>Presentation Video</strong></h4>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://github.com/Peckkie/Concealed-Gun-Detector">
-                            <img src="./NeRV_files/github_pad.png" height="120px" /><br />
-                            <h4><strong>Code</strong></h4>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Example Results: Webpage(Prototype)</h3>
-                <hr>
-                <video id="v0" width="100%" autoplay="" loop="" muted="" controls="">
-                    <source src="./NeRV_files/Gun2.mp4" type="video/mp4" />
-                </video>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Abstract</h3>
-                <hr>
-                <img src="./NeRV_files/Capture2.JPG" class="img-responsive" alt="overview" /><br />
-                <p class="text-justify">
-                    &emsp;&emsp;&emsp;Nowadays, there are a lot of efforts to use
-                    intelligent algorithms to detect gun related incidents in CCTV.
-                    However, this approach cannot prevent the gun incidents before they
-                    happen. So, we present here an algorithm and the system which can
-                    detect people with concealed gun in order to early alarm before the
-                    incident happens.
-                    <br />&emsp;&emsp;&emsp;We develop the algorithm by first collecting
-                    videos of gun incidents from YouTube.com. We then prepare the
-                    dataset by dividing a video into 2 parts: the concealed gun part and
-                    the label part. After that, we use PoseFlow to track individual and
-                    train different learning algorithms on the dataset. The experiment
-                    shows that Random Forest outperforms Support Vector Machine,
-                    Decision Tree, Logistic Regression by having 77%, Accuracy, 76%
-                    Recall, 63% Precision and 69% F1-Score. <br />&emsp;&emsp;&emsp;For
-                    the system we develop API which detects concealed gun based on
-                    Random Forest algorithm. In order to demonstrate and debug the
-                    system, we also develop the Web Application that take a video as an
-                    input and output probabilities of having concealed gun for all
-                    people in the video. Moreover, when a subject with concealed gun is
-                    detected, the system sends Line notification to the pre-configured
-                    user.
-                </p>
-            </div>
-        </div>
-        <!-- Awards!!!!!!!!!! -->
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Awards</h3>
-                <hr>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2 text-center">
-                <ul class="nav nav-pills nav-justified">
-                    <li>
-                        <a href="https://www.depa.or.th/th/PM-award">
-                            <img src="./NeRV_files/depa.png" height="180px" /><br />
-                            <h4><strong>Digital Youth of the Year 2020</strong></h4>
-                            Prime Minister’s Digital Award 2020 <br />
-                            By DEPA<br /><br />
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://sc.kku.ac.th/sciweb/4023.html">
-                            <img src="./NeRV_files/NSC.png" height="180px" /><br />
-                            <h4><strong>1st Runner-Up (NSC2020)</strong></h4>
-                            The Twenty-second National Software Contest Thailand 2020<br />
-                            Category: Data Science and Artificial Intelligence Application <br />
-                            By NSTDA
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- rrrrr -->
-
-        <div class="w3-content w3-display-container" style="max-width:700px; margin-top: 30px; margin-bottom: 30px;">
-            <img class="mySlides" src="NeRV_files/IMG04.jpg" style="width:100%">
-            <img class="mySlides" src="NeRV_files/IMG03.jpg" style="width:100%">
-            <img class="mySlides" src="NeRV_files/IMG05.jpg" style="width:100%">
-            <img class="mySlides" src="NeRV_files/IMG07.jpg" style="width:100%">
-            <img class="mySlides" src="NeRV_files/IMG02.jpg" style="width:100%">
-            <div class="w3-center w3-container w3-section w3-large w3-text-white w3-display-bottommiddle"
-                style="width:100%">
-                <div class="w3-left w3-hover-text-khaki" onclick="plusDivs(-1)">&#10094;</div>
-                <div class="w3-right w3-hover-text-khaki" onclick="plusDivs(1)">&#10095;</div>
-                <span class="w3-badge demo w3-border w3-transparent w3-hover-white" onclick="currentDiv(1)"></span>
-                <span class="w3-badge demo w3-border w3-transparent w3-hover-white" onclick="currentDiv(2)"></span>
-                <span class="w3-badge demo w3-border w3-transparent w3-hover-white" onclick="currentDiv(3)"></span>
-                <span class="w3-badge demo w3-border w3-transparent w3-hover-white" onclick="currentDiv(4)"></span>
-                <span class="w3-badge demo w3-border w3-transparent w3-hover-white" onclick="currentDiv(5)"></span>
-            </div>
-        </div>
-        <!-- rrrrr -->
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Presentation Video for Prime Minister's Digital Award 2020</h3>
-                <hr>
-                <div class="text-center">
-                    <div style="position: relative">
-                        <iframe align="center" width="100%" height="422"
-                            src="https://www.youtube-nocookie.com/embed/SznOiUYxk_4" frameborder="0"
-                            allowfullscreen></iframe>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Presentation Poster for NSC 2020 </h3>
-                <hr>
-                <div class="text-center">
-                    <div style="position: relative">
-                        <img src="./NeRV_files/Poster.png" height="1000px"><br>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <h3>Awards received</h3>
-                <hr>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2 text-center">
-                <ul class="nav nav-pills nav-justified">
-                    <li>
-                        <a href="https://www.depa.or.th/storage/app/media/file/announce-prime-ministers-digital-award-2020.pdf">
-                            <img src="./NeRV_files/depa.png" height="180px" /><br />
-                            <h4><strong>Digital Youth of the Year 2020</strong></h4>
-                            Prime Minister’s Digital Award 2020 <br />
-                            By DEPA<br /><br />
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://sc2.kku.ac.th/stat/statweb/index.php/component/k2/item/525-news8-9-63">
-                            <img src="./NeRV_files/NSC.png" height="180px" /><br />
-                            <h4><strong>1st Runner-Up (NSC2020)</strong></h4>
-                            The Twenty-second National Software Contest Thailand 2020<br />
-                            Category: Data Science and Artificial Intelligence Application <br />
-                            By NSTDA
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div> -->
-
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2"></div>
-        </div>
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2">
-                <br />
-                The website template was borrowed from
-                <a href="http://mgharbi.com/">Michaël Gharbi</a>.
-                <p></p>
-            </div>
-        </div>
+  <nav class="nav" id="nav">
+    <div class="wrap">
+      <a class="brand" href="#top"><span class="rec" aria-hidden="true"></span><span class="mono">CONG</span></a>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#dataset">Dataset</a></li>
+        <li><a href="#method">Method</a></li>
+        <li><a href="#results">Results</a></li>
+        <li><a href="#media">Media</a></li>
+        <li><a href="#awards">Awards</a></li>
+        <li><a href="#citation">Citation</a></li>
+      </ul>
     </div>
+  </nav>
 
-    <script>
-        var slideIndex = 1;
-        showDivs(slideIndex);
+  <header class="hero" id="top">
+    <div class="wrap">
+      <div class="venue"><b>IEEE KST 2024</b> · CONcealed Gun dataset</div>
+      <h1>Detecting Human with <span class="hl">Concealed Gun</span> by Learning from YouTube's CCTV Videos</h1>
+      <p class="subtitle">Spotting armed people <em>before</em> the gun appears — learning from how people move in real CCTV footage of robberies.</p>
 
-        function plusDivs(n) {
-            showDivs(slideIndex += n);
-        }
+      <div class="authors">
+        <a href="https://www.linkedin.com/in/yupapornwanna">Yupaporn Wanna<sup>1</sup></a>
+        <span>Pimonpun Chachomphon<sup>1</sup></span>
+        <a href="https://www.linkedin.com/in/haemwaan-sivaraks-22434a13b/">Haemwaan Sivaraks<sup>2</sup></a>
+        <a href="https://vi-lab-th.github.io/">Thanapong Intharah<sup>1</sup></a>
+      </div>
+      <div class="affil">
+        <sup>1</sup><a href="https://vi-lab-th.github.io/" style="color:inherit">Visual Intelligence Lab</a>, Department of Statistics, Faculty of Science, Khon Kaen University
+        &nbsp;·&nbsp; <sup>2</sup>Krungthai Bank
+      </div>
 
-        function currentDiv(n) {
-            showDivs(slideIndex = n);
-        }
+      <div class="btns">
+        <a class="btn primary" href="https://ieeexplore.ieee.org/abstract/document/10499663">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+          Paper
+        </a>
+        <a class="btn" href="https://github.com/Peckkie/Concealed-Gun-Detector">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
+          Code
+        </a>
+        <a class="btn" href="https://www.youtube.com/watch?v=XcfcuMSpp90">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4L15.8 12z"/></svg>
+          Video
+        </a>
+        <a class="btn" href="#media">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>
+          Poster
+        </a>
+        <a class="btn" href="#citation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/></svg>
+          BibTeX
+        </a>
+      </div>
 
-        function showDivs(n) {
-            var i;
-            var x = document.getElementsByClassName("mySlides");
-            var dots = document.getElementsByClassName("demo");
-            if (n > x.length) { slideIndex = 1 }
-            if (n < 1) { slideIndex = x.length }
-            for (i = 0; i < x.length; i++) {
-                x[i].style.display = "none";
-            }
-            for (i = 0; i < dots.length; i++) {
-                dots[i].className = dots[i].className.replace(" w3-white", "");
-            }
-            x[slideIndex - 1].style.display = "block";
-            dots[slideIndex - 1].className += " w3-white";
-        }
+      <div class="cctv">
+        <video autoplay muted loop playsinline preload="auto" poster="assets/img/hero-poster.jpg" aria-label="Detection results on CCTV footage: green boxes for normal people, red boxes for people predicted to carry a concealed gun">
+          <source src="assets/video/hero-loop.mp4" type="video/mp4" />
+        </video>
+        <div class="hud" aria-hidden="true">
+          <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+          <div class="tl"><span class="rec"></span>REC · CAM-01</div>
+          <div class="tr" id="clock">--:--:--</div>
+          <div class="bl">CONG-DETECTOR v1 · pose + tubelet</div>
+          <div class="br">ALERT → LINE Notify</div>
+        </div>
+      </div>
+      <p class="cctv-cap">Per-person predictions on real CCTV footage — <span style="color:var(--green)">green</span>: normal, <span style="color:var(--red)">red</span>: likely concealed gun.</p>
+    </div>
+  </header>
 
-    </script>
+  <main>
+    <!-- Overview -->
+    <section id="overview">
+      <div class="wrap">
+        <div class="eyebrow reveal">01 · Overview</div>
+        <h2 class="reveal">Most systems see the gun. We try to see it coming.</h2>
+        <p class="lead reveal">Existing CCTV analytics detect firearms once they are drawn — when it is already too late. This project asks whether the <em>body language</em> of someone hiding a gun is enough to raise an early alarm.</p>
+
+        <div class="tldr">
+          <div class="abstract reveal">
+            <h3>Abstract</h3>
+            <p>We present a human tracking dataset, <b>CONcealed Gun (CONG)</b>, where each human is identified as either a normal person, a person with a visible gun, or a person with a concealed gun. The dataset was mined from CCTV footage of robbery incidents uploaded to YouTube. A key distinction of the dataset is that we mark the moment when a person with a concealed gun starts to reveal it, so the footage <em>before</em> the revelation can be used as training data for identifying people with concealed guns.</p>
+            <p>Along with the dataset, we propose a two-step detection algorithm — human pose estimation followed by human movement analysis — and explore its performance across different backbone models and footage lengths. Our results show that CONG is a challenging benchmark: recognizing a hidden trace is hard from both a dataset-construction and a computer-vision perspective.</p>
+          </div>
+          <div class="reveal">
+            <div class="figure"><img src="assets/img/overview.jpg" alt="System overview: a person with a concealed gun is captured by CCTV, analyzed by an AI detector, which alerts a security guard" loading="lazy" /></div>
+            <p class="figcap">From camera to guard: CCTV footage is analyzed in real time and suspicious people trigger an alert before an incident happens.</p>
+            <div class="keypoints">
+              <div class="card kp"><div class="ic">D</div><p><b>New dataset.</b> Real robbery CCTV from YouTube, tracked per person with three identity labels.</p></div>
+              <div class="card kp"><div class="ic">M</div><p><b>Pose-based detector.</b> Skeleton tracking + movement tubelets, no need to see the weapon itself.</p></div>
+              <div class="card kp"><div class="ic">S</div><p><b>Working system.</b> Flask API, web demo and LINE notifications for security staff.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dataset -->
+    <section id="dataset">
+      <div class="wrap">
+        <div class="eyebrow reveal">02 · The CONG Dataset</div>
+        <h2 class="reveal">A tracking dataset with a little secret</h2>
+        <p class="lead reveal">Each tracked person in each clip carries one of three identities. The secret: people who look completely normal for most of the clip may turn out to be armed.</p>
+
+        <div class="classes">
+          <div class="card cls n reveal"><div class="box"><span>person</span></div><h3>Normal</h3><p>Bystanders, staff and customers with no weapon throughout the clip.</p></div>
+          <div class="card cls v reveal"><div class="box"><span>gun · visible</span></div><h3>Visible gun</h3><p>People whose firearm is already in view — the case conventional detectors handle.</p></div>
+          <div class="card cls c reveal"><div class="box"><span>gun · concealed</span></div><h3>Concealed gun</h3><p>People carrying a hidden firearm that they reveal later in the footage.</p></div>
+        </div>
+
+        <div class="card timeline-card reveal">
+          <h3>Labeling the moment of revelation</h3>
+          <p>For every armed person we annotate the frame where the gun starts to appear. Everything before that point shows a person who <em>looks</em> unarmed but is not — exactly the signal an early-warning model must learn.</p>
+          <div class="timeline-scroll"><svg class="timeline" viewBox="0 0 900 150" role="img" aria-label="Timeline of a clip: the segment before the revelation frame is used as concealed-gun training data; after it, the gun is visible.">
+            <defs>
+              <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="rgba(255,90,95,.12)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(255,90,95,.35)" stroke-width="3"/></pattern>
+            </defs>
+            <text x="20" y="26" fill="#93a3b4" font-family="JetBrains Mono, monospace" font-size="13">t = 0</text>
+            <text x="880" y="26" fill="#93a3b4" font-family="JetBrains Mono, monospace" font-size="13" text-anchor="end">end of clip</text>
+            <rect x="20" y="42" width="560" height="46" rx="8" fill="url(#hatch)" stroke="#ff5a5f" stroke-width="1.5"/>
+            <rect x="590" y="42" width="290" height="46" rx="8" fill="rgba(255,181,71,.14)" stroke="#ffb547" stroke-width="1.5"/>
+            <text x="300" y="70" fill="#ffd1d2" font-family="Inter, sans-serif" font-size="15" font-weight="600" text-anchor="middle">concealed — used for training</text>
+            <text x="735" y="70" fill="#ffe2b8" font-family="Inter, sans-serif" font-size="15" font-weight="600" text-anchor="middle">gun visible</text>
+            <line x1="585" y1="32" x2="585" y2="100" stroke="#e7edf3" stroke-width="2" stroke-dasharray="4 4"/>
+            <circle cx="585" cy="32" r="5" fill="#e7edf3"/>
+            <text x="585" y="122" fill="#e7edf3" font-family="JetBrains Mono, monospace" font-size="13" text-anchor="middle">revelation frame</text>
+            <g font-family="JetBrains Mono, monospace" font-size="11" fill="#64758a">
+              <rect x="40" y="104" width="120" height="22" rx="5" fill="none" stroke="#2c3d50"/><text x="100" y="119" text-anchor="middle">tubelet 1–2 s</text>
+              <rect x="170" y="104" width="120" height="22" rx="5" fill="none" stroke="#2c3d50"/><text x="230" y="119" text-anchor="middle">tubelet 1–2 s</text>
+              <text x="320" y="119">…</text>
+            </g>
+          </svg></div>
+          <div class="legend"><span><i style="background:#ff5a5f"></i>Concealed segment → positive samples</span><span><i style="background:#ffb547"></i>Revealed segment</span><span><i style="background:#3ee08f"></i>Normal people → negative samples</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Method -->
+    <section id="method">
+      <div class="wrap">
+        <div class="eyebrow reveal">03 · Method</div>
+        <h2 class="reveal">Read the body, not the weapon</h2>
+        <p class="lead reveal">A hidden gun is, by definition, invisible to an object detector. Instead we track each person's skeleton and learn the subtle movement patterns of carrying a concealed weapon.</p>
+
+        <div class="pipeline">
+          <div class="card step reveal"><h3>Collect</h3><p>Mine robbery CCTV clips from YouTube and cut them around each incident.</p><div class="tags"><span class="tag">YouTube</span><span class="tag">CCTV</span></div></div>
+          <div class="card step reveal"><h3>Pose &amp; track</h3><p>Estimate 2D body keypoints and link them across frames into per-person tracks.</p><div class="tags"><span class="tag">pose estimation</span><span class="tag">PoseFlow</span></div></div>
+          <div class="card step reveal"><h3>Tubelets</h3><p>Slice each track into short 1 s / 2 s tubelets and build normalized movement features.</p><div class="tags"><span class="tag">z-score</span><span class="tag">1 s · 2 s</span></div></div>
+          <div class="card step reveal"><h3>Classify</h3><p>Predict the probability that each person is carrying a concealed gun.</p><div class="tags"><span class="tag">RF</span><span class="tag">XGBoost</span><span class="tag">SVM</span><span class="tag">LR</span><span class="tag">DT</span></div></div>
+        </div>
+
+        <div class="system">
+          <div class="card reveal">
+            <h3>System architecture</h3>
+            <p>The trained model is served behind an API. Camera footage goes in; per-person risk scores and annotated frames come out.</p>
+            <div class="flow"><span>CCTV</span><em>→</em><span>Flask API</span><em>⇄</em><span>Model</span><em>→</em><span>LINE Notify</span><em>→</em><span>Guard</span></div>
+          </div>
+          <div class="card reveal">
+            <h3>Web demo for debugging</h3>
+            <p>A web application takes a video, draws boxes per person with their concealed-gun probability, and pushes an alert with a snapshot to a pre-configured LINE account.</p>
+            <div class="flow"><span style="border-color:#3ee08f;color:#3ee08f">None 0.12</span><span style="border-color:#ff5a5f;color:#ff5a5f">Gun 0.81</span><em>→</em><span>alert</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results">
+      <div class="wrap">
+        <div class="eyebrow reveal">04 · Results</div>
+        <h2 class="reveal">A hard problem, measured honestly</h2>
+        <p class="lead reveal">Recall matters most for early warning: a missed armed person is far costlier than a false alarm a guard can dismiss.</p>
+
+        <div class="results">
+          <div class="card reveal">
+            <h3>CONG benchmark</h3>
+            <p style="color:var(--muted);font-size:15px;margin:0">Best configurations from the KST 2024 paper, evaluated per tubelet.</p>
+            <div class="stat-row">
+              <div class="stat">
+                <div class="lbl">best recall</div>
+                <div class="model">Random Forest · 2 s</div>
+                <div class="bar"><div class="row"><span>Recall</span><b>59%</b></div><div class="track"><div class="fill" data-w="59"></div></div></div>
+                <div class="bar"><div class="row"><span>Precision</span><b>32%</b></div><div class="track"><div class="fill p" data-w="32"></div></div></div>
+              </div>
+              <div class="stat">
+                <div class="lbl">best precision</div>
+                <div class="model">XGBoost · 1 s</div>
+                <div class="bar"><div class="row"><span>Recall</span><b>57%</b></div><div class="track"><div class="fill" data-w="57"></div></div></div>
+                <div class="bar"><div class="row"><span>Precision</span><b>32%</b></div><div class="track"><div class="fill p" data-w="32"></div></div></div>
+              </div>
+            </div>
+            <p class="note">Low precision reflects how subtle the cue is — and why CONG is a useful, challenging benchmark for the community.</p>
+          </div>
+
+          <div class="card reveal">
+            <h3>Prototype model selection</h3>
+            <p style="color:var(--muted);font-size:15px;margin:0">Earlier NSC 2020 prototype, test set (%). Random Forest was chosen for deployment.</p>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Model</th><th>Accuracy</th><th>Recall</th><th>Precision</th><th>F1</th></tr></thead>
+                <tbody>
+                  <tr><td>Decision Tree</td><td>71.47</td><td>68.57</td><td>55.38</td><td>61.28</td></tr>
+                  <tr class="best"><td>Random Forest</td><td>77.12</td><td>76.19</td><td>62.50</td><td>68.67</td></tr>
+                  <tr><td>SVM</td><td>80.51</td><td>43.81</td><td>93.88</td><td>56.74</td></tr>
+                  <tr><td>Logistic Regression</td><td>73.98</td><td>67.62</td><td>59.17</td><td>63.11</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="note">The two evaluations use different data splits and protocols and are not directly comparable.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Media -->
+    <section id="media">
+      <div class="wrap">
+        <div class="eyebrow reveal">05 · Talks &amp; Poster</div>
+        <h2 class="reveal">Demo &amp; presentations</h2>
+        <div class="reveal" style="margin-top:30px">
+          <div class="embed"><video controls muted playsinline preload="none" poster="assets/img/demo-poster.jpg" style="width:100%;height:100%;object-fit:contain"><source src="assets/video/demo.mp4" type="video/mp4" /></video></div>
+          <p class="media-label">Full prototype walkthrough: upload a clip in the web app → per-person concealed-gun probability → LINE notification with a snapshot.</p>
+        </div>
+        <div class="demo-grid">
+          <div class="reveal">
+            <div class="embed">
+              <button class="yt-facade" data-yt="SznOiUYxk_4" style="background-image:url('https://i.ytimg.com/vi/SznOiUYxk_4/hqdefault.jpg')" aria-label="Play presentation video for Prime Minister's Digital Award 2020">
+                <span class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+                <span class="t">Prime Minister's Digital Award 2020</span>
+              </button>
+            </div>
+            <p class="media-label">Presentation for the Prime Minister's Digital Award 2020 · <a href="https://www.youtube.com/watch?v=XcfcuMSpp90">project talk on YouTube ↗</a></p>
+          </div>
+          <a class="card poster-card reveal" href="assets/img/poster-full.jpg" target="_blank" rel="noopener">
+            <img src="assets/img/poster.jpg" alt="NSC 2020 research poster" loading="lazy" />
+            <div class="meta">NSC 2020 poster <span>open full ↗</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Awards -->
+    <section id="awards">
+      <div class="wrap">
+        <div class="eyebrow reveal">06 · Recognition</div>
+        <h2 class="reveal">Awards</h2>
+        <div class="awards">
+          <a class="card award reveal" href="https://www.depa.or.th/th/PM-award">
+            <div class="logo"><img src="assets/img/depa.png" alt="depa logo" loading="lazy" /></div>
+            <div><div class="yr">2020 · DEPA</div><h3>Digital Youth of the Year</h3><p>Prime Minister's Digital Award 2020</p></div>
+          </a>
+          <a class="card award reveal" href="https://sc.kku.ac.th/sciweb/4023.html">
+            <div class="logo"><img src="assets/img/nsc.png" alt="NSC logo" loading="lazy" /></div>
+            <div><div class="yr">2020 · NSTDA</div><h3>1st Runner-Up, NSC 2020</h3><p>22nd National Software Contest · Data Science &amp; AI Application</p></div>
+          </a>
+        </div>
+        <div class="gallery reveal" id="gallery">
+          <button><img src="assets/img/IMG04.jpg" alt="Receiving the award with the Prime Minister's Digital Award backdrop" loading="lazy" /></button>
+          <button><img src="assets/img/IMG06.jpg" alt="The team in front of Government House" loading="lazy" /></button>
+          <button><img src="assets/img/IMG03.jpg" alt="Award ceremony on stage" loading="lazy" /></button>
+          <button><img src="assets/img/IMG07.jpg" alt="Presenting the project at the ceremony" loading="lazy" /></button>
+          <button><img src="assets/img/IMG10.jpg" alt="Team photo with the trophy at Government House" loading="lazy" /></button>
+          <button><img src="assets/img/IMG05.jpg" alt="Explaining the project with a microphone" loading="lazy" /></button>
+          <button><img src="assets/img/IMG02.jpg" alt="All Prime Minister's Digital Award 2020 winners" loading="lazy" /></button>
+          <button><img src="assets/img/IMG08.jpg" alt="Answering questions at the award event" loading="lazy" /></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Citation -->
+    <section id="citation">
+      <div class="wrap">
+        <div class="eyebrow reveal">07 · Citation</div>
+        <h2 class="reveal">BibTeX</h2>
+        <p class="lead reveal">If you use the CONG dataset or build on this work, please cite:</p>
+        <div class="bib reveal">
+          <button class="copy" id="copyBib">Copy</button>
+<pre id="bibText"><span class="k">@inproceedings</span>{wanna2024cong,
+  <span class="f">title</span>     = {<span class="s">CONG: Yet Another Human Tracking Dataset, but with a Little Secret</span>},
+  <span class="f">author</span>    = {<span class="s">Wanna, Yupaporn and Intharah, Thanapong</span>},
+  <span class="f">booktitle</span> = {<span class="s">2024 16th International Conference on Knowledge and Smart Technology (KST)</span>},
+  <span class="f">pages</span>     = {<span class="s">35--39</span>},
+  <span class="f">year</span>      = {<span class="s">2024</span>},
+  <span class="f">publisher</span> = {<span class="s">IEEE</span>},
+  <span class="f">doi</span>       = {<span class="s">10.1109/KST61284.2024.10499663</span>}
+}</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2020–2026 <a href="https://vi-lab-th.github.io/">Visual Intelligence Lab</a>, Khon Kaen University</span>
+      <span class="mono">CONG · concealed gun detection</span>
+    </div>
+  </footer>
+
+  <dialog class="lb" id="lb">
+    <img id="lbImg" alt="" />
+    <div class="lb-bar"><button id="lbPrev">← Prev</button><button id="lbClose">Close</button><button id="lbNext">Next →</button></div>
+  </dialog>
+
+  <script>
+    // nav state
+    const nav = document.getElementById('nav');
+    const links = [...document.querySelectorAll('.nav li a')];
+    const onScroll = () => {
+      nav.classList.toggle('scrolled', scrollY > 10);
+      let cur = '';
+      document.querySelectorAll('main section').forEach(s => { if (s.getBoundingClientRect().top < 140) cur = s.id; });
+      links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+    };
+    addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+    // HUD clock
+    const clock = document.getElementById('clock');
+    const tick = () => { const d = new Date(); clock.textContent = d.toISOString().slice(0, 10) + ' ' + d.toTimeString().slice(0, 8); };
+    tick(); setInterval(tick, 1000);
+
+    // reveal on scroll + bars
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('in');
+      e.target.querySelectorAll('.fill').forEach(f => f.style.width = f.dataset.w + '%');
+      io.unobserve(e.target);
+    }), { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // YouTube facade
+    document.querySelectorAll('.yt-facade').forEach(b => b.addEventListener('click', () => {
+      const f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/' + b.dataset.yt + '?autoplay=1';
+      f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      f.allowFullscreen = true; f.title = b.getAttribute('aria-label');
+      b.replaceWith(f);
+    }));
+
+    // lightbox
+    const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+    const imgs = [...document.querySelectorAll('#gallery img')];
+    let idx = 0;
+    const show = i => { idx = (i + imgs.length) % imgs.length; lbImg.src = imgs[idx].src; lbImg.alt = imgs[idx].alt; };
+    imgs.forEach((im, i) => im.parentElement.addEventListener('click', () => { show(i); lb.showModal(); }));
+    document.getElementById('lbPrev').onclick = () => show(idx - 1);
+    document.getElementById('lbNext').onclick = () => show(idx + 1);
+    document.getElementById('lbClose').onclick = () => lb.close();
+    lb.addEventListener('click', e => { if (e.target === lb) lb.close(); });
+    lb.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') show(idx - 1); if (e.key === 'ArrowRight') show(idx + 1); });
+
+    // copy bibtex
+    document.getElementById('copyBib').addEventListener('click', async e => {
+      try { await navigator.clipboard.writeText(document.getElementById('bibText').innerText); e.target.textContent = 'Copied ✓'; }
+      catch { e.target.textContent = 'Select & copy'; }
+      setTimeout(() => e.target.textContent = 'Copy', 1800);
+    });
+  </script>
 </body>
-
 </html>
